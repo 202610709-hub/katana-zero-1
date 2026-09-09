@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Katana Zero - Web Tech Demo (Boss Battle Edition)</title>
+    <title>Katana Zero - Web Tech Demo</title>
     <style>
         * {
             box-sizing: border-box;
@@ -77,38 +77,7 @@
             box-shadow: 0 0 12px #00ffff;
             transition: width 0.05s linear;
         }
-        /* 보스 체력바 HUD */
-        #boss-hp-container {
-            position: absolute;
-            top: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 450px;
-            height: 24px;
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #ff0055;
-            box-shadow: 0 0 15px rgba(ff, 0, 85, 0.6);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            z-index: 6;
-        }
-        #boss-hp-fill {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, #ff0055, #ff5500);
-            box-shadow: 0 0 10px #ff0055;
-            transition: width 0.1s ease-out;
-        }
-        #boss-title {
-            position: absolute;
-            top: -22px;
-            font-size: 14px;
-            font-weight: bold;
-            color: #ff0055;
-            text-shadow: 0 0 8px #ff0055;
-            letter-spacing: 2px;
-        }
+        /* 튜토리얼 박스 상단 중앙 배치 */
         #tutorial-box {
             position: absolute;
             top: 24px;
@@ -157,15 +126,15 @@
         }
         .btn-group {
             display: flex;
-            gap: 16px;
+            gap: 20px;
         }
         button {
             pointer-events: auto;
             background: transparent;
             color: #00ffff;
             border: 2px solid #00ffff;
-            padding: 14px 28px;
-            font-size: 17px;
+            padding: 14px 36px;
+            font-size: 18px;
             font-family: inherit;
             font-weight: bold;
             cursor: pointer;
@@ -176,15 +145,7 @@
             color: #000;
             box-shadow: 0 0 20px #00ffff;
         }
-        button.boss-btn {
-            color: #ff0055;
-            border-color: #ff0055;
-        }
-        button.boss-btn:hover {
-            background: #ff0055;
-            color: #fff;
-            box-shadow: 0 0 20px #ff0055;
-        }
+        /* 미니맵 우측 상단 HUD 아래 영역으로 조정 */
         #minimap-container {
             width: 200px;
             height: 112px;
@@ -214,11 +175,7 @@
                 </div>
             </div>
 
-            <div id="boss-hp-container" class="hidden">
-                <div id="boss-title">MASKED EXECUTIONER (BOSS)</div>
-                <div id="boss-hp-fill"></div>
-            </div>
-
+            <!-- 우측 패널: KILL 수치 및 미니맵 상단 수직 배치 -->
             <div class="hud-right-panel">
                 <div id="score-display" class="hud-stats">KILL: 0</div>
                 <div id="minimap-container">
@@ -227,6 +184,7 @@
             </div>
         </div>
 
+        <!-- 튜토리얼 박스 -->
         <div id="tutorial-box" class="hidden">
             <div id="tutorial-title">TUTORIAL STEP 1</div>
             <div id="tutorial-desc">Use A / D to Move, W / Space to Jump</div>
@@ -238,7 +196,6 @@
         <div class="btn-group">
             <button id="btn-tutorial">TUTORIAL</button>
             <button id="btn-stage">STAGE MODE</button>
-            <button id="btn-boss" class="boss-btn">BOSS BATTLE</button>
             <button id="btn-infinite">INFINITE MODE</button>
         </div>
     </div>
@@ -251,8 +208,6 @@ const minimapCanvas = document.getElementById("minimapCanvas");
 const mctx = minimapCanvas.getContext("2d");
 
 const chronosFill = document.getElementById("chronos-bar-fill");
-const bossHpContainer = document.getElementById("boss-hp-container");
-const bossHpFill = document.getElementById("boss-hp-fill");
 const lobbyScreen = document.getElementById("lobby-screen");
 const uiLayer = document.getElementById("ui-layer");
 const modeDisplay = document.getElementById("mode-display");
@@ -294,7 +249,6 @@ const tutorialSteps = [
 
 document.getElementById("btn-tutorial").addEventListener("click", () => startGame("TUTORIAL"));
 document.getElementById("btn-stage").addEventListener("click", () => startGame("STAGE"));
-document.getElementById("btn-boss").addEventListener("click", () => startGame("BOSS"));
 document.getElementById("btn-infinite").addEventListener("click", () => startGame("INFINITE"));
 
 window.addEventListener("keydown", (e) => { 
@@ -362,14 +316,6 @@ const stageMaps = {
         { x: 600, y: 800, w: 1360, h: 24 },
         { x: 200, y: 500, w: 600, h: 24 },
         { x: 1760, y: 500, w: 600, h: 24 }
-    ],
-    4: [ // 보스전 결투장 전용 스테이지
-        { x: 0, y: 1380, w: 2560, h: 60 },
-        { x: 0, y: 0, w: 40, h: 1440 },
-        { x: 2520, y: 0, w: 40, h: 1440 },
-        { x: 400, y: 1050, w: 450, h: 24 },
-        { x: 1710, y: 1050, w: 450, h: 24 },
-        { x: 980, y: 780, w: 600, h: 24 }
     ]
 };
 
@@ -389,44 +335,36 @@ let dashLines = [];
 let sparkParticles = [];
 let bloodParticles = [];
 let dustParticles = [];
-let shockwaves = [];
 let bullets = [];
 let enemies = [];
-let boss = null;
 
-// image_27113e 기반: 멜빵과 모자를 쓴 근접 갱단
 function drawEnemyType1(ctx, x, y, facing) {
     ctx.save(); ctx.translate(x + 12, y + 20); ctx.scale(facing, 1);
-    ctx.fillStyle = "#222"; ctx.fillRect(-8, -22, 16, 7); // 모자
-    ctx.fillStyle = "#dca17a"; ctx.fillRect(-6, -15, 12, 10); // 얼굴/수염
-    ctx.fillStyle = "#5d4236"; ctx.fillRect(-6, -8, 12, 5); // 수염
-    ctx.fillStyle = "#e6e6e6"; ctx.fillRect(-8, -4, 16, 12); // 흰 셔츠
-    ctx.fillStyle = "#2b2b2b"; ctx.fillRect(-7, -4, 3, 12); ctx.fillRect(4, -4, 3, 12); // 멜빵
-    ctx.fillStyle = "#4a5263"; ctx.fillRect(-8, 8, 16, 15); // 청바지
+    ctx.fillStyle = "#2b2b2b"; ctx.fillRect(-8, -20, 16, 6);
+    ctx.fillStyle = "#dca17a"; ctx.fillRect(-6, -14, 12, 12);
+    ctx.fillStyle = "#e6e6e6"; ctx.fillRect(-8, -2, 16, 12);
+    ctx.fillStyle = "#4a5263"; ctx.fillRect(-8, 13, 16, 15);
     ctx.restore();
 }
 
-// image_271144 기반: 리젠트 머리 Whip/단검 갱단
 function drawEnemyType2(ctx, x, y, facing) {
     ctx.save(); ctx.translate(x + 12, y + 20); ctx.scale(facing, 1);
-    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(-6, -25, 14, 10); // 리젠트 헤어
-    ctx.fillStyle = "#e2a983"; ctx.fillRect(-6, -15, 12, 10);
-    ctx.fillStyle = "#f0f0f0"; ctx.fillRect(-6, -5, 12, 14); // 셔츠
-    ctx.fillStyle = "#111"; ctx.fillRect(-6, 9, 12, 16); // 바지
+    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(-6, -22, 14, 8);
+    ctx.fillStyle = "#e2a983"; ctx.fillRect(-6, -14, 12, 10);
+    ctx.fillStyle = "#f0f0f0"; ctx.fillRect(-6, -4, 12, 14);
+    ctx.fillStyle = "#22252a"; ctx.fillRect(-6, 10, 12, 16);
     ctx.restore();
 }
 
-// image_27115f 기반: 트렌치 코트 스나이퍼/총잡이
 function drawEnemyType3(ctx, x, y, facing) {
     ctx.save(); ctx.translate(x + 12, y + 20); ctx.scale(facing, 1);
-    ctx.fillStyle = "#2c221e"; ctx.fillRect(-6, -21, 12, 7); // 숏컷
+    ctx.fillStyle = "#2c221e"; ctx.fillRect(-6, -20, 12, 6);
     ctx.fillStyle = "#dca17a"; ctx.fillRect(-6, -14, 12, 8);
-    ctx.fillStyle = "#2a2d32"; ctx.fillRect(-10, -6, 20, 26); // 코트
-    ctx.fillStyle = "#555"; ctx.fillRect(0, -2, 16, 5); // 라이플
+    ctx.fillStyle = "#26292b"; ctx.fillRect(-9, -6, 18, 24);
+    ctx.fillStyle = "#1a1a1d"; ctx.fillRect(-7, 18, 14, 8);
     ctx.restore();
 }
 
-// 샷건 중장갑병
 function drawEnemyType4(ctx, x, y, facing) {
     ctx.save(); ctx.translate(x + 12, y + 20); ctx.scale(facing, 1);
     ctx.fillStyle = "#1a1a1a"; ctx.fillRect(-6, -22, 14, 10);
@@ -435,7 +373,6 @@ function drawEnemyType4(ctx, x, y, facing) {
     ctx.restore();
 }
 
-// image_2711a4 기반: 플레이어 (포니테일, 흑색/황금색 킴모노 스타일)
 function drawPlayerSprite(ctx, x, y, facing, isInvincible, isEvading = false) {
     ctx.save(); 
     ctx.translate(x + 10, y + 20); 
@@ -446,66 +383,17 @@ function drawPlayerSprite(ctx, x, y, facing, isInvincible, isEvading = false) {
         ctx.transform(1, 0, -0.6, 1, 0, 0);
     }
 
-    // 포니테일 머리
-    ctx.fillStyle = "#111";
-    ctx.fillRect(-10, -24, 12, 12);
-    ctx.fillRect(-16, -22, 8, 8); // 뒤 묶은 머리
-    ctx.fillStyle = "#ffcc00"; ctx.fillRect(-12, -20, 4, 4); // 머리 끈
-
-    // 피부 & 얼굴
-    ctx.fillStyle = "#dca17a"; ctx.fillRect(-5, -14, 10, 8);
-
-    // 하오리/로브 (검은색 + 황금색 테두리)
-    ctx.fillStyle = isInvincible ? "#00ffff" : "#1e1e24";
-    ctx.fillRect(-9, -6, 18, 16);
-    ctx.fillStyle = "#ffaa00"; 
-    ctx.fillRect(-9, 8, 18, 4); // 하단 금빛 장식
-    ctx.fillRect(-3, -6, 6, 14); // 중앙 깃
-
-    // 바지
-    ctx.fillStyle = "#111116"; ctx.fillRect(-8, 12, 16, 12);
-
-    // 카타나 (붉은 자루, 금빛 가드)
-    ctx.fillStyle = "#ffcc00"; ctx.fillRect(4, -2, 4, 4);
-    ctx.fillStyle = "#880022"; ctx.fillRect(6, 0, 10, 3);
+    ctx.fillStyle = isInvincible ? "#00ffff" : "#1a1a1a";
+    ctx.fillRect(-12, -22, 8, 12);
+    ctx.fillStyle = "#ffcc00"; ctx.fillRect(-6, -22, 3, 4);
+    ctx.fillStyle = isInvincible ? "#00ffff" : "#1a1a1a";
+    ctx.fillRect(-6, -20, 12, 8);
+    ctx.fillStyle = "#dca17a"; ctx.fillRect(-4, -12, 8, 8);
+    ctx.fillStyle = "#252528"; ctx.fillRect(-8, -4, 14, 12);
+    ctx.fillStyle = "#80123f"; ctx.fillRect(-12, 4, 12, 5);
+    ctx.fillStyle = "#1a1a1e"; ctx.fillRect(-7, 9, 14, 12);
+    ctx.fillStyle = "#ff0055"; ctx.fillRect(2, -2, 14, 3);
     
-    ctx.restore();
-}
-
-// image_708184 기반: 보스 (분홍 복면, 하얀 슈트, 거대 도끼/망치)
-function drawBossSprite(ctx, x, y, facing, isAttacking = false) {
-    ctx.save();
-    ctx.translate(x + 25, y + 35);
-    ctx.scale(facing, 1);
-
-    // 분홍 복면 머리
-    ctx.fillStyle = "#d6336c";
-    ctx.fillRect(-14, -34, 28, 18);
-    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(-6, -26, 4, 4); ctx.fillRect(4, -26, 4, 4); // 눈 구멍
-
-    // 거구의 하얀 슈트 상체
-    ctx.fillStyle = "#f0f0f5";
-    ctx.fillRect(-20, -16, 40, 28);
-    ctx.fillStyle = "#d6336c"; ctx.fillRect(-4, -16, 8, 20); // 내부 타이/넥
-
-    // 하얀 바지 & 구두
-    ctx.fillStyle = "#e0e0e8"; ctx.fillRect(-18, 12, 16, 22); ctx.fillRect(2, 12, 16, 22);
-    ctx.fillStyle = "#111"; ctx.fillRect(-20, 32, 18, 6); ctx.fillRect(2, 32, 18, 6);
-
-    // 거대한 양손 도끼 (Axe)
-    ctx.save();
-    if (isAttacking) {
-        ctx.rotate(0.6);
-    }
-    ctx.fillStyle = "#8b5a2b"; ctx.fillRect(-6, -50, 8, 70); // 자루
-    ctx.fillStyle = "#cccccc"; 
-    ctx.beginPath();
-    ctx.moveTo(-22, -45); ctx.lineTo(18, -45); ctx.lineTo(26, -30); ctx.lineTo(-30, -30);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#ff0055"; ctx.fillRect(-8, -42, 12, 6); // 문양
-    ctx.restore();
-
     ctx.restore();
 }
 
@@ -527,7 +415,7 @@ const player = {
     x: 200, y: 1200, w: 20, h: 40,
     vx: 0, vy: 0,
     speed: 420, 
-    jumpForce: -820,
+    jumpForce: -820, // 기존 -680에서 상향하여 점프력 증가
     isGrounded: false,
     isWalled: false,
     wallDir: 0,
@@ -565,6 +453,7 @@ const player = {
             this.isWalled = false;
             this.jumpCount = 1;
         } else if (this.jumpCount < this.maxJumps) {
+            // 더블 점프 높이 상향 (-680 수치 적용)
             this.vy = this.jumpForce * 0.92;
             this.jumpCount++;
             spawnDust(this.x + this.w / 2, this.y + this.h);
@@ -713,12 +602,6 @@ const player = {
             }
         });
 
-        // 보스 공격 판정
-        if (boss && boss.alive && isColliding(attackBox, boss)) {
-            boss.takeDamage(10, angle);
-            hitSuccess = true;
-        }
-
         if (hitSuccess) {
             this.evadeCooldown = 0;
             this.hasAirDashed = false;
@@ -760,149 +643,6 @@ const player = {
         drawPlayerSprite(ctx, this.x, this.y, this.facingDir, this.isInvincible, this.isEvading);
     }
 };
-
-// --- 보스 객체 구현 ---
-function createBoss(x, y) {
-    return {
-        x: x, y: y, w: 50, h: 70,
-        vx: 0, vy: 0,
-        hp: 100, maxHp: 100,
-        alive: true,
-        facingDir: -1,
-        
-        state: "IDLE", // IDLE, PATTERN_COMBO, PATTERN_SLAM, PATTERN_CHARGE
-        stateTimer: 1.0,
-        attackBox: null,
-        isAttacking: false,
-
-        takeDamage(amount, angle) {
-            this.hp -= amount;
-            if (this.hp <= 0) {
-                this.hp = 0;
-                this.alive = false;
-                killCount += 5;
-                updateHUD();
-                spawnBlood(this.x + this.w / 2, this.y + this.h / 2, angle, 120);
-            } else {
-                spawnBlood(this.x + this.w / 2, this.y + this.h / 2, angle, 30);
-            }
-            if (bossHpFill) {
-                bossHpFill.style.width = `${(this.hp / this.maxHp) * 100}%`;
-            }
-        },
-
-        update(dt) {
-            if (!this.alive) return;
-
-            this.facingDir = player.x < this.x ? -1 : 1;
-            this.stateTimer -= dt;
-
-            const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
-
-            if (this.state === "IDLE") {
-                this.vx = 0;
-                this.isAttacking = false;
-                
-                // 플레이어와 가까우면 이동 및 무작위 근접 패턴 선택
-                if (distToPlayer < 700) {
-                    this.vx = this.facingDir * 180;
-                }
-
-                if (this.stateTimer <= 0) {
-                    const rand = Math.random();
-                    if (distToPlayer < 180) {
-                        this.state = "PATTERN_COMBO";
-                        this.stateTimer = 1.2;
-                    } else if (rand < 0.5) {
-                        this.state = "PATTERN_SLAM";
-                        this.stateTimer = 1.4;
-                    } else {
-                        this.state = "PATTERN_CHARGE";
-                        this.stateTimer = 1.5;
-                    }
-                }
-            } 
-            else if (this.state === "PATTERN_COMBO") { // 패턴 1: 3연속 회전 참격
-                this.vx = this.facingDir * 120;
-                this.isAttacking = true;
-
-                if (Math.sin(this.stateTimer * 20) > 0) {
-                    const slashBox = {
-                        x: this.facingDir === 1 ? this.x + this.w : this.x - 140,
-                        y: this.y - 20,
-                        w: 140, h: 100
-                    };
-                    if (isColliding(player, slashBox) && !player.isInvincible && !player.isDead) {
-                        player.isDead = true;
-                        spawnBlood(player.x, player.y, Math.PI);
-                    }
-                }
-
-                if (this.stateTimer <= 0) {
-                    this.state = "IDLE";
-                    this.stateTimer = 0.8;
-                }
-            }
-            else if (this.state === "PATTERN_SLAM") { // 패턴 2: 도끼 찍기 및 충격파 발사
-                this.vx = 0;
-                this.isAttacking = true;
-
-                if (this.stateTimer < 0.7 && this.stateTimer > 0.65) {
-                    // 충격파 생성
-                    shockwaves.push({
-                        x: this.x + (this.facingDir === 1 ? this.w : -40),
-                        y: this.y + this.h - 30,
-                        vx: this.facingDir * 750,
-                        w: 40, h: 30,
-                        life: 1.2
-                    });
-                    cameraShakeTime = 0.3;
-                    cameraShakeIntensity = 12;
-                }
-
-                if (this.stateTimer <= 0) {
-                    this.state = "IDLE";
-                    this.stateTimer = 1.0;
-                }
-            }
-            else if (this.state === "PATTERN_CHARGE") { // 패턴 3: 돌진 공격
-                this.vx = this.facingDir * 650;
-                this.isAttacking = true;
-
-                if (isColliding(this, player) && !player.isInvincible && !player.isDead) {
-                    player.isDead = true;
-                    spawnBlood(player.x, player.y, Math.PI);
-                }
-
-                if (this.stateTimer <= 0) {
-                    this.state = "IDLE";
-                    this.stateTimer = 1.2;
-                }
-            }
-
-            this.vy += gravity * dt;
-            this.x += this.vx * dt;
-            this.y += this.vy * dt;
-
-            platforms.forEach(p => {
-                if (isColliding(this, p)) {
-                    if (this.vy > 0) { this.y = p.y - this.h; this.vy = 0; }
-                    if (this.vx > 0 && this.x + this.w > p.x && this.x < p.x) { this.x = p.x - this.w; }
-                    if (this.vx < 0 && this.x < p.x + p.w && this.x + this.w > p.x + p.w) { this.x = p.x + p.w; }
-                }
-            });
-        },
-
-        draw() {
-            if (!this.alive) {
-                ctx.fillStyle = "#ff0055";
-                ctx.fillRect(this.x, this.y + this.h - 10, this.h * 1.2, 10);
-                return;
-            }
-            drawBossSprite(ctx, this.x, this.y, this.facingDir, this.isAttacking);
-        }
-    };
-}
 
 function createEnemy(type, x, y) {
     let speed = 130;
@@ -1037,11 +777,6 @@ function drawMinimap() {
         }
     });
 
-    if (boss && boss.alive) {
-        mctx.fillStyle = "#ff0000";
-        mctx.fillRect(boss.x * scaleX - 2, boss.y * scaleY - 2, 8, 8);
-    }
-
     if (!player.isDead) {
         mctx.fillStyle = "#00ffff";
         mctx.fillRect(player.x * scaleX - 2, player.y * scaleY - 2, 5, 5);
@@ -1050,10 +785,7 @@ function drawMinimap() {
 
 function drawEnemyIndicators() {
     const margin = 40;
-    const targets = [...enemies];
-    if (boss && boss.alive) targets.push(boss);
-
-    targets.forEach(e => {
+    enemies.forEach(e => {
         if (!e.alive) return;
 
         const ex = e.x + e.w / 2;
@@ -1075,8 +807,8 @@ function drawEnemyIndicators() {
             ctx.translate(edgeX, edgeY);
             ctx.rotate(angle);
 
-            ctx.fillStyle = e === boss ? "#ff0000" : "#ff0055";
-            ctx.shadowColor = ctx.fillStyle;
+            ctx.fillStyle = "#ff0055";
+            ctx.shadowColor = "#ff0055";
             ctx.shadowBlur = 10;
             ctx.beginPath();
             ctx.moveTo(12, 0);
@@ -1094,7 +826,7 @@ function drawEnemyIndicators() {
 function startGame(mode) {
     gameMode = mode;
     gameState = "PLAYING";
-    currentStage = mode === "BOSS" ? 4 : 1;
+    currentStage = 1;
     killCount = 0;
     tutorialStep = 0;
     lobbyScreen.classList.add("hidden");
@@ -1125,15 +857,12 @@ function returnToLobby() {
     lobbyScreen.classList.remove("hidden");
     uiLayer.classList.add("hidden");
     tutorialBox.classList.add("hidden");
-    bossHpContainer.classList.add("hidden");
 }
 
 function updateHUD() {
     scoreDisplay.innerText = `KILL: ${killCount}`;
     if (gameMode === "STAGE") {
-        modeDisplay.innerText = currentStage === 4 ? `STAGE 4 (BOSS)` : `STAGE ${currentStage}`;
-    } else if (gameMode === "BOSS") {
-        modeDisplay.innerText = `BOSS BATTLE`;
+        modeDisplay.innerText = `STAGE ${currentStage}`;
     } else if (gameMode === "TUTORIAL") {
         modeDisplay.innerText = `TUTORIAL MODE`;
     } else {
@@ -1143,22 +872,11 @@ function updateHUD() {
 
 function initStageEnemies() {
     enemies = [];
-    boss = null;
-    bossHpContainer.classList.add("hidden");
-
     if (gameMode === "TUTORIAL") {
         platforms = stageMaps[1];
         if (tutorialStep === 3) {
             enemies.push(createEnemy(2, 800, 1200));
         }
-        return;
-    }
-
-    if (gameMode === "BOSS" || (gameMode === "STAGE" && currentStage === 4)) {
-        platforms = stageMaps[4];
-        boss = createBoss(1800, 1200);
-        bossHpContainer.classList.remove("hidden");
-        if (bossHpFill) bossHpFill.style.width = "100%";
         return;
     }
 
@@ -1201,7 +919,6 @@ function resetGame() {
     player.jumpCount = 0;
     
     bullets = [];
-    shockwaves = [];
     bloodParticles = [];
     sparkParticles = [];
     dustParticles = [];
@@ -1215,8 +932,8 @@ function resetGame() {
     initStageEnemies();
 }
 
-function spawnBlood(x, y, dirAngle, count = 60) {
-    for (let i = 0; i < count; i++) {
+function spawnBlood(x, y, dirAngle) {
+    for (let i = 0; i < 60; i++) {
         const spreadAngle = dirAngle + (Math.random() - 0.5) * 1.5;
         const speed = Math.random() * 550 + 120;
         bloodParticles.push({
@@ -1260,8 +977,7 @@ function gameLoop(timestamp) {
             }
         } else if (gameMode === "STAGE" && !player.isDead) {
             let activeEnemies = enemies.filter(e => e.alive).length;
-            let bossDefeated = boss ? !boss.alive : true;
-            if (activeEnemies === 0 && bossDefeated) {
+            if (activeEnemies === 0 && enemies.length > 0) {
                 currentStage++;
                 resetGame();
             }
@@ -1291,21 +1007,6 @@ function gameLoop(timestamp) {
         if (effectiveDt > 0) {
             player.update(effectiveDt);
             enemies.forEach(e => e.update(effectiveDt));
-            if (boss) boss.update(effectiveDt);
-
-            // 충격파 업데이트
-            for (let i = shockwaves.length - 1; i >= 0; i--) {
-                let sw = shockwaves[i];
-                sw.x += sw.vx * effectiveDt;
-                sw.life -= effectiveDt;
-
-                if (isColliding(player, sw) && !player.isInvincible && !player.isDead) {
-                    player.isDead = true;
-                    spawnBlood(player.x, player.y, Math.PI);
-                }
-
-                if (sw.life <= 0) shockwaves.splice(i, 1);
-            }
 
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
@@ -1336,10 +1037,6 @@ function gameLoop(timestamp) {
                             spawnBlood(e.x + e.w / 2, e.y + e.h / 2, Math.atan2(b.vy, b.vx));
                         }
                     });
-                    if (boss && boss.alive && isColliding(boss, { x: b.x - 5, y: b.y - 5, w: 10, h: 10 })) {
-                        boss.takeDamage(15, Math.atan2(b.vy, b.vx));
-                        bullets.splice(i, 1);
-                    }
                 }
             }
 
@@ -1401,15 +1098,6 @@ function gameLoop(timestamp) {
         ctx.fill();
     });
 
-    // 충격파 그리기
-    shockwaves.forEach(sw => {
-        ctx.fillStyle = "#ff0055";
-        ctx.shadowColor = "#ff0055";
-        ctx.shadowBlur = 12;
-        ctx.fillRect(sw.x, sw.y, sw.w, sw.h);
-        ctx.shadowBlur = 0;
-    });
-
     for (let i = dashLines.length - 1; i >= 0; i--) {
         let dl = dashLines[i];
         dl.life -= dt;
@@ -1469,8 +1157,6 @@ function gameLoop(timestamp) {
     });
 
     enemies.forEach(e => e.draw());
-    if (boss) boss.draw();
-
     if (gameState === "PLAYING" && !player.isDead) {
         player.draw();
     }
